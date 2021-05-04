@@ -81,6 +81,10 @@ class Alloc:
     memref: MemRef
 
 @dataclass
+class Alloca:
+    memref: MemRef
+
+@dataclass
 class GetRef:
     args: List[str]
     getref_type: FuncType
@@ -97,16 +101,35 @@ class Global:
     value: Tensor
     global_type: FuncType
 
+@dataclass
+class Load:
+    mem_var: str
+    mem_idx: List[str]
+    memref: MemRef
 
-ValExp = Union[Const, Alloc, GetRef, Global]
+
+ValExp = Union[Const, Alloc, GetRef, Global, Alloca]
 
 @dataclass
 class SubstOp:
     var_name: str
     exp: ValExp
 
+@dataclass
+class ForOp:
+    arg_name: str
+    loop_range: Tuple[int, int]
+    block: Block
 
-Op = Union[SubstOp]
+@dataclass
+class StoreOp:
+    val_var: str
+    mem_var: str
+    mem_idx: List[str]
+    memref: MemRef
+
+
+Op = Union[SubstOp, ForOp, StoreOp]
 
 
 

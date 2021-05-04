@@ -183,6 +183,10 @@ def parse_op(tokens, idx):
             val_exp, newidx = parse_const(tokens, idx + 2)
         elif tokens[idx + 2] == "alloc":
             val_exp, newidx = parse_alloc(tokens, idx + 2)
+        elif tokens[idx + 2] == "alloca":
+            val_exp, newidx = parse_alloca(tokens, idx + 2)
+        elif tokens[idx + 2] == "affine.load":
+            val_exp, newidx = parse_load(tokens, idx + 2)
         elif tokens[idx + 2] == '"':
             if tokens[idx + 3] == "krnl.getref":
                 val_exp, newidx = parse_getref(tokens, idx + 2)
@@ -192,11 +196,18 @@ def parse_op(tokens, idx):
                 return [], idx
         else:
             return [], idx
+        op = SubstOp(var_name, val_exp)
 
-        next_exp, newidx = parse_op(tokens, newidx)
-        return [SubstOp(var_name, val_exp)] + next_exp, newidx
     else:
-        return [], idx
+        if tokens[idx] == "affine.for":
+            op, newidx = parse_for(tokens, idx)
+        elif tokens[idx] == "affine.store":
+            op, newidx = parse_store(tokens, idx)
+        else:
+            return [], idx
+
+    next_exp, newidx = parse_op(tokens, newidx)
+    return [op] + next_exp, newidx
 
 def parse_const(tokens, idx):
     if tokens[idx] != "constant":
@@ -311,15 +322,15 @@ def parse_shape(tokens, idx):
         raise ParserError(idx + 1)
     if tokens[idx + 2] != "[":
         raise ParserError(idx + 2)
-    ls, newidx = parse_list(tokens, idx + 3)
+    ls, newidx = parse_int_list(tokens, idx + 3)
     if tokens[newidx] != "]":
         raise ParserError(newidx)
     return ls, newidx + 1
 
-def parse_list(tokens, idx):
+def parse_int_list(tokens, idx):
     hd = int(tokens[idx])
     if tokens[idx + 1] == ",":
-        tl, newidx = parse_list(tokens, idx + 2)
+        tl, newidx = parse_int_list(tokens, idx + 2)
         return [hd] + tl, newidx
     else:
         return [hd], idx + 1
@@ -352,6 +363,83 @@ def parse_nparray(tokens, idx):
             paren_count -= 1
         idx += 1
     return np.array(ast.literal_eval(literal), dtype=np.float32), idx
+
+def parse_for(tokens, idx):
+    if tokens[idx] != "affine.for":
+        raise ParserError(idx)
+    if tokens[idx + 1][0] != "%":
+        raise ParserError(idx + 1)
+    arg_name = tokens[idx + 1][1:]
+    if tokens[idx + 2] != "=":
+        raise ParserError(idx + 2)
+    loop_range = (int(tokens[idx + 3]), int(tokens[idx + 5]))
+    if tokens[idx + 4] != "to":
+        raise ParserError(idx + 1)
+    block, newidx = parse_block(tokens, idx + 6)
+    return ForOp(arg_name, loop_range, block),  newidx
+
+def parse_alloca(tokens, idx):
+    if tokens[idx] != "alloca":
+        raise ParserError(idx)
+    if tokens[idx + 1] != "(":
+        raise ParserError(idx + 1)
+    if tokens[idx + 2] != ")":
+        raise ParserError(idx + 2)
+    if tokens[idx + 3] != ":":
+        raise ParserError(idx + 3)
+
+    memref_type, newidx = parse_type(tokens, idx + 4)
+    return Alloca(memref_type), newidx
+
+def parse_load(tokens, idx):
+    if tokens[idx] != "affine.load":
+        raise ParserError(idx)
+    if tokens[idx + 1][0] != "%":
+        raise ParserError(idx + 1)
+    mem_var = tokens[idx + 1][1:]
+    if tokens[idx + 2] != "[":
+        raise ParserError(idx + 2)
+    mem_idx, newidx = parse_var_list(tokens, idx + 3)
+    if tokens[newidx] != "]":
+        raise ParserError(newidx)
+    if tokens[newidx + 1] != ":":
+        raise ParserError(newidx + 1)
+    memref, newidx = parse_type(tokens, newidx + 2)
+    return Load(mem_var, mem_idx, memref),  newidx
+
+def parse_var_list(tokens, idx):
+    if tokens[idx] == "]":
+        return [], idx
+    hd = tokens[idx][1:]
+    if tokens[idx + 1] == ",":
+        tl, newidx = parse_var_list(tokens, idx + 2)
+        return [hd] + tl, newidx
+    else:
+        return [hd], idx + 1
+
+def parse_store(tokens, idx):
+    if tokens[idx] != "affine.store":
+        raise ParserError(idx)
+    if tokens[idx + 1][0] != "%":
+        raise ParserError(idx + 1)
+    val_var = tokens[idx + 1][1:]
+    if tokens[idx + 2] != ",":
+        raise ParserError(idx + 2)
+    if tokens[idx + 3][0] != "%":
+        raise ParserError(idx + 1)
+    mem_var = tokens[idx + 3][1:]
+    if tokens[idx + 4][0] != "[":
+        raise ParserError(idx + 4)
+    mem_idx, newidx = parse_var_list(tokens, idx + 5)
+    if tokens[newidx] != "]":
+        raise ParserError(newidx)
+    if tokens[newidx + 1] != ":":
+        raise ParserError(newidx + 1)
+    memref, newidx = parse_type(tokens, newidx + 2)
+    return StoreOp(val_var, mem_var, mem_idx, memref), newidx
+
+
+
 
 
 
