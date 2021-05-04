@@ -1,5 +1,6 @@
 import sys
 import struct
+import ast
 from classes import *
 
 SEP_CHARS = ["(", ")", "[", "]", "<", ">", "\"", ",", "{", "}", ":"]
@@ -67,6 +68,8 @@ def parse_arg_var(tokens, idx):
 def parse_type(tokens, idx):
     if tokens[idx] == "memref":
         arg_ast, newidx = parse_memref(tokens, idx + 1)
+    elif tokens[idx] == "tensor":
+        arg_ast, newidx = parse_tensor_type(tokens, idx + 1)
     elif tokens[idx] == "i64":
         arg_ast, newidx = I64(), idx + 1
     elif tokens[idx] == "i8":
@@ -94,6 +97,18 @@ def parse_memref(tokens, idx):
     if tokens[idx] != ">":
         raise ParseError(idx)
     return MemRef(shape, val_type), idx + 1
+
+def parse_tensor_type(tokens, idx):
+    if tokens[idx] != "<":
+        raise ParserError(idx)
+    idx += 1
+    split_type = tokens[idx].split('x')
+    shape = [int(s) for s in split_type[:-1]]
+    val_type = str_to_valtype(split_type[-1])
+    idx += 1
+    if tokens[idx] != ">":
+        raise ParseError(idx)
+    return TensorType(shape, val_type), idx + 1
 
 
 def parse_tuple(tokens, idx):
@@ -171,6 +186,8 @@ def parse_op(tokens, idx):
         elif tokens[idx + 2] == '"':
             if tokens[idx + 3] == "krnl.getref":
                 val_exp, newidx = parse_getref(tokens, idx + 2)
+            elif tokens[idx + 3] == "krnl.global":
+                val_exp, newidx = parse_global(tokens, idx + 2)
             else:
                 return [], idx
         else:
@@ -179,7 +196,7 @@ def parse_op(tokens, idx):
         next_exp, newidx = parse_op(tokens, newidx)
         return [SubstOp(var_name, val_exp)] + next_exp, newidx
     else:
-        raise ParserError(idx)
+        return [], idx
 
 def parse_const(tokens, idx):
     if tokens[idx] != "constant":
@@ -233,13 +250,120 @@ def parse_getref(tokens, idx):
     getref_type, newidx = parse_type(tokens, idx + 2)
     return GetRef(args, getref_type), newidx
 
+def parse_global(tokens, idx):
+    if tokens[idx] != '"':
+        raise ParserError(idx)
+    if tokens[idx + 1] != "krnl.global":
+        raise ParserError(idx + 1)
+    if tokens[idx + 2] != '"':
+        raise ParserError(idx + 2)
+    if tokens[idx + 3] != '(':
+        raise ParserError(idx + 3)
+    if tokens[idx + 4] != ')':
+        raise ParserError(idx + 4)
+    if tokens[idx + 5] != '{':
+        raise ParserError(idx + 5)
+
+    name, newidx = parse_name(tokens, idx + 6)
+    if tokens[newidx] != ",":
+        raise ParserError(newidx)
+    newidx += 1
+
+    shape, newidx = parse_shape(tokens, newidx)
+    if tokens[newidx] != ",":
+        raise ParserError(newidx)
+    newidx += 1
+
+    value, newidx = parse_value(tokens, newidx)
+    if tokens[newidx] != ":":
+        raise ParserError(newidx)
+    newidx += 1
+
+    val_type, newidx = parse_type(tokens, newidx)
+    if tokens[newidx] != "}":
+        raise ParserError(newidx)
+    newidx += 1
+
+    if tokens[newidx] != ":":
+        raise ParserError(newidx)
+    newidx += 1
+
+    ref_type, newidx = parse_type(tokens, newidx)
+
+    return Global(name, shape, value, ref_type), newidx
+
+def parse_name(tokens, idx):
+    if tokens[idx] != "name":
+        raise ParserError(idx)
+    if tokens[idx + 1] != "=":
+        raise ParserError(idx + 1)
+    if tokens[idx + 2] != '"':
+        raise ParserError(idx + 2)
+    name = tokens[idx + 3]
+    if tokens[idx + 4] != '"':
+        raise ParserError(idx + 4)
+    return name, idx + 5
+
+def parse_shape(tokens, idx):
+    if tokens[idx] != "shape":
+        raise ParserError(idx)
+    if tokens[idx + 1] != "=":
+        raise ParserError(idx + 1)
+    if tokens[idx + 2] != "[":
+        raise ParserError(idx + 2)
+    ls, newidx = parse_list(tokens, idx + 3)
+    if tokens[newidx] != "]":
+        raise ParserError(newidx)
+    return ls, newidx + 1
+
+def parse_list(tokens, idx):
+    hd = int(tokens[idx])
+    if tokens[idx + 1] == ",":
+        tl, newidx = parse_list(tokens, idx + 2)
+        return [hd] + tl, newidx
+    else:
+        return [hd], idx + 1
+
+def parse_value(tokens, idx):
+    if tokens[idx] != "value":
+        raise ParserError(idx)
+    if tokens[idx + 1] != "=":
+        raise ParserError(idx + 1)
+    if tokens[idx + 2] != "dense":
+        raise ParserError(idx + 2)
+    if tokens[idx + 3] != "<":
+        raise ParserError(idx + 3)
+    nparray, newidx = parse_nparray(tokens, idx + 4)
+    if tokens[newidx] != ">":
+        raise ParserError(newidx)
+    return nparray, newidx + 1
+
+def parse_nparray(tokens, idx):
+    if tokens[idx] != "[":
+        raise ParserError(idx)
+    idx += 1
+    literal = "["
+    paren_count = 1
+    while paren_count > 0:
+        literal += tokens[idx]
+        if tokens[idx] == "[":
+            paren_count += 1
+        if tokens[idx] == "]":
+            paren_count -= 1
+        idx += 1
+    return np.array(ast.literal_eval(literal), dtype=np.float32), idx
+
+
+
+
+
 
 
 
 filename = sys.argv[1]
 with open(filename) as f: content = f.read()
 tokens = lex(content)
-ast, idx = parse_module(tokens, 0)
+module_ast, idx = parse_module(tokens, 0)
 
 breakpoint()
 

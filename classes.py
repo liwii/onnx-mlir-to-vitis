@@ -31,6 +31,11 @@ class MemRef:
     size: List[int]
     base_type: ValType
 
+@dataclass
+class TensorType:
+    size: List[int]
+    base_type: ValType
+
 
 SingleType = Union[ValType, MemRef]
 TupleType = List[SingleType]
@@ -75,17 +80,31 @@ Const = Union[F32Const, I64Const]
 class Alloc:
     memref: MemRef
 
-ValExp = Union[Const, Alloc]
+@dataclass
+class GetRef:
+    args: List[str]
+    getref_type: FuncType
+
+@dataclass
+class Tensor:
+    value: np.ndarray
+    tensor_type: TensorType
+
+@dataclass
+class Global:
+    name: str
+    shape: List[int]
+    value: Tensor
+    global_type: FuncType
+
+
+ValExp = Union[Const, Alloc, GetRef, Global]
 
 @dataclass
 class SubstOp:
     var_name: str
     exp: ValExp
 
-@dataclass
-class GetRef:
-    args: List[str]
-    getref_type: FuncType
 
 Op = Union[SubstOp]
 
