@@ -75,7 +75,7 @@ def parse_type(tokens, idx):
     elif tokens[idx] == "i8":
         arg_ast, newidx = I8(), idx + 1
     elif tokens[idx] == "f32":
-        arg_ast, newidx == F32(), idx + 1
+        arg_ast, newidx = F32(), idx + 1
     elif tokens[idx] == "(":
         arg_ast, newidx = parse_tuple(tokens, idx)
     else:
@@ -187,6 +187,22 @@ def parse_op(tokens, idx):
             val_exp, newidx = parse_alloca(tokens, idx + 2)
         elif tokens[idx + 2] == "affine.load":
             val_exp, newidx = parse_load(tokens, idx + 2)
+        elif tokens[idx + 2] == "mulf":
+            val_exp, newidx = parse_mulf(tokens, idx + 2)
+        elif tokens[idx + 2] == "addf":
+            val_exp, newidx = parse_addf(tokens, idx + 2)
+        elif tokens[idx + 2] == "divf":
+            val_exp, newidx = parse_divf(tokens, idx + 2)
+        elif tokens[idx + 2] == "subf":
+            val_exp, newidx = parse_subf(tokens, idx + 2)
+        elif tokens[idx + 2] == "exp":
+            val_exp, newidx = parse_exp(tokens, idx + 2)
+        elif tokens[idx + 2] == "select":
+            val_exp, newidx = parse_select(tokens, idx + 2)
+        elif tokens[idx + 2] == "cmpf" and tokens[idx + 3] == "ogt":
+            val_exp, newidx = parse_gt(tokens, idx + 2)
+        elif tokens[idx + 2] == "cmpf" and tokens[idx + 3] == "olt":
+            val_exp, newidx = parse_lt(tokens, idx + 2)
         elif tokens[idx + 2] == '"':
             if tokens[idx + 3] == "krnl.getref":
                 val_exp, newidx = parse_getref(tokens, idx + 2)
@@ -203,6 +219,10 @@ def parse_op(tokens, idx):
             op, newidx = parse_for(tokens, idx)
         elif tokens[idx] == "affine.store":
             op, newidx = parse_store(tokens, idx)
+        elif tokens[idx] == "dealloc":
+            op, newidx = parse_dealloc(tokens, idx)
+        elif tokens[idx] == "return":
+            op, newidx = parse_return(tokens, idx)
         else:
             return [], idx
 
@@ -438,15 +458,163 @@ def parse_store(tokens, idx):
     memref, newidx = parse_type(tokens, newidx + 2)
     return StoreOp(val_var, mem_var, mem_idx, memref), newidx
 
+def parse_mulf(tokens, idx):
+    if tokens[idx] != "mulf":
+        raise ParserError(idx)
+    if tokens[idx + 1][0] != "%":
+        raise ParserError(idx + 1)
+    var1 = tokens[idx + 1][1:]
+    if tokens[idx + 2] != ",":
+        raise ParserError(idx + 2)
+    if tokens[idx + 3][0] != "%":
+        raise ParserError(idx + 3)
+    var2 = tokens[idx + 3][1:]
+    if tokens[idx + 4] != ":":
+        raise ParserError(idx + 4)
+    val_type, newidx = parse_type(tokens, idx + 5)
+    return Mulf(var1, var2, val_type), newidx
 
+def parse_addf(tokens, idx):
+    if tokens[idx] != "addf":
+        raise ParserError(idx)
+    if tokens[idx + 1][0] != "%":
+        raise ParserError(idx + 1)
+    var1 = tokens[idx + 1][1:]
+    if tokens[idx + 2] != ",":
+        raise ParserError(idx + 2)
+    if tokens[idx + 3][0] != "%":
+        raise ParserError(idx + 3)
+    var2 = tokens[idx + 3][1:]
+    if tokens[idx + 4] != ":":
+        raise ParserError(idx + 4)
+    val_type, newidx = parse_type(tokens, idx + 5)
+    return Addf(var1, var2, val_type), newidx
 
+def parse_divf(tokens, idx):
+    if tokens[idx] != "divf":
+        raise ParserError(idx)
+    if tokens[idx + 1][0] != "%":
+        raise ParserError(idx + 1)
+    var1 = tokens[idx + 1][1:]
+    if tokens[idx + 2] != ",":
+        raise ParserError(idx + 2)
+    if tokens[idx + 3][0] != "%":
+        raise ParserError(idx + 3)
+    var2 = tokens[idx + 3][1:]
+    if tokens[idx + 4] != ":":
+        raise ParserError(idx + 4)
+    val_type, newidx = parse_type(tokens, idx + 5)
+    return Divf(var1, var2, val_type), newidx
 
+def parse_subf(tokens, idx):
+    if tokens[idx] != "subf":
+        raise ParserError(idx)
+    if tokens[idx + 1][0] != "%":
+        raise ParserError(idx + 1)
+    var1 = tokens[idx + 1][1:]
+    if tokens[idx + 2] != ",":
+        raise ParserError(idx + 2)
+    if tokens[idx + 3][0] != "%":
+        raise ParserError(idx + 3)
+    var2 = tokens[idx + 3][1:]
+    if tokens[idx + 4] != ":":
+        raise ParserError(idx + 4)
+    val_type, newidx = parse_type(tokens, idx + 5)
+    return Subf(var1, var2, val_type), newidx
 
+def parse_exp(tokens, idx):
+    if tokens[idx] != "exp":
+        raise ParserError(idx)
+    if tokens[idx + 1][0] != "%":
+        raise ParserError(idx + 1)
+    var = tokens[idx + 1][1:]
+    if tokens[idx + 2] != ":":
+        raise ParserError(idx + 2)
+    val_type, newidx = parse_type(tokens, idx + 3)
+    return Exp(var, val_type), newidx
 
+def parse_gt(tokens, idx):
+    if tokens[idx] != "cmpf":
+        raise ParserError(idx)
+    if tokens[idx + 1] != "ogt":
+        raise ParserError(idx + 1)
+    if tokens[idx + 2] != ",":
+        raise ParserError(idx + 2)
+    if tokens[idx + 3][0] != "%":
+        raise ParserError(idx + 3)
+    var1 = tokens[idx + 3][1:]
+    if tokens[idx + 4] != ",":
+        raise ParserError(idx + 4)
+    if tokens[idx + 5][0] != "%":
+        raise ParserError(idx + 5)
+    var2 = tokens[idx + 5][1:]
+    if tokens[idx + 6] != ":":
+        raise ParserError(idx + 6)
+    val_type, newidx = parse_type(tokens, idx + 7)
+    return Gt(var1, var2, val_type), newidx
 
+def parse_lt(tokens, idx):
+    if tokens[idx] != "cmpf":
+        raise ParserError(idx)
+    if tokens[idx + 1] != "olt":
+        raise ParserError(idx + 1)
+    if tokens[idx + 2] != ",":
+        raise ParserError(idx + 2)
+    if tokens[idx + 3][0] != "%":
+        raise ParserError(idx + 3)
+    var1 = tokens[idx + 3][1:]
+    if tokens[idx + 4] != ",":
+        raise ParserError(idx + 4)
+    if tokens[idx + 5][0] != "%":
+        raise ParserError(idx + 5)
+    var2 = tokens[idx + 5][1:]
+    if tokens[idx + 6] != ":":
+        raise ParserError(idx + 6)
+    val_type, newidx = parse_type(tokens, idx + 7)
+    return Lt(var1, var2, val_type), newidx
 
+def parse_select(tokens, idx):
+    if tokens[idx] != "select":
+        raise ParserError(idx)
+    if tokens[idx + 1][0] != "%":
+        raise ParserError(idx + 1)
+    var1 = tokens[idx + 1][1:]
+    if tokens[idx + 2] != ",":
+        raise ParserError(idx + 2)
+    if tokens[idx + 3][0] != "%":
+        raise ParserError(idx + 3)
+    var2 = tokens[idx + 3][1:]
+    if tokens[idx + 4] != ",":
+        raise ParserError(idx + 4)
+    if tokens[idx + 5][0] != "%":
+        raise PasrerError(idx + 5)
+    var3 = tokens[idx + 5][1:]
+    if tokens[idx + 6] != ":":
+        raise ParserError(idx + 6)
+    val_type, newidx = parse_type(tokens, idx + 7)
+    return Select(var1, var2, var3, val_type), newidx
 
+def parse_dealloc(tokens, idx):
+    if tokens[idx] != "dealloc":
+        raise ParserError(idx)
+    if tokens[idx + 1][0] != "%":
+        raise ParserError(idx + 1)
+    var = tokens[idx + 1][1:]
+    if tokens[idx + 2] != ":":
+        raise ParserError(idx + 2)
+    memref, newidx = parse_type(tokens, idx + 3)
+    return DeallocOp(var, memref), newidx
 
+def parse_return(tokens, idx):
+    if tokens[idx] != "return":
+        raise ParserError(idx)
+    if tokens[idx + 1][0] != "%":
+        raise ParserError(idx + 1)
+    var = tokens[idx + 1][1:]
+    if tokens[idx + 2] != ":":
+        raise ParserError(idx + 2)
+    memref, newidx = parse_type(tokens, idx + 3)
+    return ReturnOp(var, memref), newidx
 
 filename = sys.argv[1]
 with open(filename) as f: content = f.read()

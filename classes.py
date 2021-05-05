@@ -107,8 +107,55 @@ class Load:
     mem_idx: List[str]
     memref: MemRef
 
+@dataclass
+class Mulf:
+    var1: str
+    var2: str
+    val_type: ValType
 
-ValExp = Union[Const, Alloc, GetRef, Global, Alloca]
+@dataclass
+class Addf:
+    var1: str
+    var2: str
+    val_type: ValType
+
+@dataclass
+class Divf:
+    var1: str
+    var2: str
+    val_type: ValType
+
+@dataclass
+class Subf:
+    var1: str
+    var2: str
+    val_type: ValType
+
+@dataclass
+class Exp:
+    var: str
+    val_type: ValType
+
+@dataclass
+class Gt:
+    var1: str
+    var2: str
+    val_type: ValType
+
+@dataclass
+class Lt:
+    var1: str
+    var2: str
+    val_type: ValType
+
+@dataclass
+class Select:
+    var1: str
+    var2: str
+    var3: str
+    val_type: ValType
+
+ValExp = Union[Const, Alloc, GetRef, Global, Alloca, Mulf, Addf, Divf, Subf, Exp, Gt, Lt, Select]
 
 @dataclass
 class SubstOp:
@@ -127,6 +174,17 @@ class StoreOp:
     mem_var: str
     mem_idx: List[str]
     memref: MemRef
+
+@dataclass
+class DeallocOp:
+    var:str
+    memref: MemRef
+
+@dataclass
+class ReturnOp:
+    var:str
+    memref: MemRef
+
 
 
 Op = Union[SubstOp, ForOp, StoreOp]
