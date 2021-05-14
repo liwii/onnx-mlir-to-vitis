@@ -3,8 +3,9 @@ Hardware Synthesis Compiler for Deep Neural Network.
 It converts MLIR code from [onnx-mlir](https://github.com/onnx/onnx-mlir) to C++ code that can be synthesized to RTL with [Vitis HLS](https://www.xilinx.com/html_docs/xilinx2020_2/vitis_doc/introductionvitishls.html)
 
 ## Dependencies
-onnx-mlir (it might not only work for other commits than https://github.com/onnx/onnx-mlir/commit/76397990d4ef99a088f86e3615af9ca438d01fe0)
-Vitis HLS
+- onnx-mlir (it might not only work for other commits than https://github.com/onnx/onnx-mlir/commit/76397990d4ef99a088f86e3615af9ca438d01fe0)
+- Vitis HLS
+- numpy
 
 ## Tutorial
 Train your network with machine learning libraries, and export the result as ONNX.
